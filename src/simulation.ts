@@ -7,7 +7,8 @@ import {
     PLANE_ALTITUDE,
     TIME_STEP,
     VISIBLE_AOE,
-    BASE_HIT_CHANCE
+    BASE_HIT_CHANCE,
+    JUMP_CHANCE,
 } from './config';
 
 const CIRCLE_RADII = [10000, 1000, 800, 500, 250, 100, 50, 0];
@@ -16,7 +17,7 @@ const SPEEDS = {
     WALKING: 1,
     SKYDIVING: 5,
     FALLING: 50,
-    PLANE: 300,
+    PLANE: 200 / 60,
     CIRCLE: 5
 };
 
@@ -103,10 +104,16 @@ export default class Simulation {
             this.players.push(new Player(name));
         }
 
+        const direction = vec2.random(vec3.create() as any as vec2) as any as vec3;
+        const position = vec3.create();
+        vec3.scaleAndAdd(position, position, direction, -4000);
+        position[2] = PLANE_ALTITUDE;
+
+
         this.plane = {
-            direction: vec3.fromValues(1, 0, 0),
-            position: vec3.fromValues(0, 0, PLANE_ALTITUDE)
-        }
+            direction,
+            position
+        };
 
         // TODO: Initialize plane position/direction
     }
@@ -115,10 +122,14 @@ export default class Simulation {
         if (player.position[2] === PLANE_ALTITUDE) {
             // In the plane
             vec3.copy(player.position, this.plane.position);
-            
+
             // TODO: Random chance to jump
-            
-            
+            if (Math.random() < JUMP_CHANCE) {
+                console.log('dumping');
+                player.position[2] -= 5;
+            }
+
+
         } else {
             // Falling
 
@@ -262,6 +273,8 @@ export default class Simulation {
         this.blueCircle[2] -= SPEEDS.CIRCLE;
     }
 
+    center = vec2.create();
+
     simulateStep() {
         this.time += TIME_STEP;
 
@@ -275,11 +288,19 @@ export default class Simulation {
             SPEEDS.PLANE
         );
 
+        const dist = vec2.distance(this.plane.position as any as vec2, this.center);
+        if (dist > 4000) {
+            console.log('dumping');
+            for (const player of this.players) {
+                if (player.position[2] === PLANE_ALTITUDE) {
+                    player.position[2] -= 5;
+                }
+            }
+        }
+
         this.simulateCircles();
 
         const removeDeadPlayers  = [];
-
-        console.log(this.players[0]);
 
         for (const player of this.players) {
             if (player.health <= 0) {

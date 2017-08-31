@@ -1,17 +1,17 @@
-import Player from './player';
-import Location from './location';
+import Player from "./player";
+import Location from "./location";
 
-import { vec2, vec3 } from 'gl-matrix';
+import { vec2, vec3 } from "gl-matrix";
 import {
     INITIAL_CIRCLE,
     PLANE_ALTITUDE,
     TIME_STEP,
     VISIBLE_AOE,
     BASE_HIT_CHANCE,
-    JUMP_CHANCE,
-} from './config';
+    JUMP_CHANCE
+} from "./config";
 
-const CIRCLE_RADII = [10000, 1000, 800, 500, 250, 100, 50, 0];
+const CIRCLE_RADII = [10000, 4000, 3000, 1800, 250, 100, 50, 0];
 
 const SPEEDS = {
     WALKING: 1,
@@ -30,55 +30,55 @@ interface Item {
 const ITEM_LEVELS: Item[][] = [
     [
         {
-            itemName: 'head',
+            itemName: "head",
             value: 0.8
         },
         {
-            itemName: 'body',
+            itemName: "body",
             value: 0.55
         },
         {
-            itemName: 'weapon',
+            itemName: "weapon",
             value: 0 - 35
         },
         {
-            itemName: 'scope',
+            itemName: "scope",
             value: 0 - 1.2
         }
     ],
     [
         {
-            itemName: 'head',
+            itemName: "head",
             value: 0.7
         },
         {
-            itemName: 'body',
+            itemName: "body",
             value: 0.45
         },
         {
-            itemName: 'weapon',
+            itemName: "weapon",
             value: 0 - 65
         },
         {
-            itemName: 'scope',
+            itemName: "scope",
             value: 0 - 1.5
         }
     ],
     [
         {
-            itemName: 'head',
+            itemName: "head",
             value: 0.6
         },
         {
-            itemName: 'body',
+            itemName: "body",
             value: 0.45
         },
         {
-            itemName: 'weapon',
+            itemName: "weapon",
             value: 0 - 85
         },
         {
-            itemName: 'scope',
+            itemName: "scope",
             value: 0 - 1.9
         }
     ]
@@ -104,11 +104,12 @@ export default class Simulation {
             this.players.push(new Player(name));
         }
 
-        const direction = vec2.random(vec3.create() as any as vec2) as any as vec3;
+        const direction = (vec2.random(
+            (vec3.create() as any) as vec2
+        ) as any) as vec3;
         const position = vec3.create();
         vec3.scaleAndAdd(position, position, direction, -4000);
         position[2] = PLANE_ALTITUDE;
-
 
         this.plane = {
             direction,
@@ -125,11 +126,9 @@ export default class Simulation {
 
             // TODO: Random chance to jump
             if (Math.random() < JUMP_CHANCE) {
-                console.log('dumping');
+                console.log("dumping");
                 player.position[2] -= 5;
             }
-
-
         } else {
             // Falling
 
@@ -158,14 +157,14 @@ export default class Simulation {
         const chance = distance / VISIBLE_AOE * BASE_HIT_CHANCE;
 
         const hitPositionChances: [number, string][] = [
-            [0.2, 'head'],
-            [0.5, 'body'],
-            [1, 'arm']
+            [0.2, "head"],
+            [0.5, "body"],
+            [1, "arm"]
         ];
 
         if (Math.random() < chance) {
             const r = Math.random();
-            let position = '';
+            let position = "";
 
             for (const hitPosition of hitPositionChances) {
                 if (r < hitPosition[0]) {
@@ -288,9 +287,12 @@ export default class Simulation {
             SPEEDS.PLANE
         );
 
-        const dist = vec2.distance(this.plane.position as any as vec2, this.center);
+        const dist = vec2.distance(
+            (this.plane.position as any) as vec2,
+            this.center
+        );
         if (dist > 4000) {
-            console.log('dumping');
+            console.log("dumping");
             for (const player of this.players) {
                 if (player.position[2] === PLANE_ALTITUDE) {
                     player.position[2] -= 5;
@@ -300,7 +302,7 @@ export default class Simulation {
 
         this.simulateCircles();
 
-        const removeDeadPlayers  = [];
+        const removeDeadPlayers = [];
 
         for (const player of this.players) {
             if (player.health <= 0) {
@@ -322,6 +324,62 @@ export default class Simulation {
             if (pIdx !== -1) {
                 this.players.splice(pIdx, 1);
             }
+        }
+    }
+
+    draw(context: CanvasRenderingContext2D) {
+        const canvas = context.canvas;
+
+        for (const player of this.players) {
+            if (player.position[2] < PLANE_ALTITUDE) {
+                player.draw(context);
+            }
+        }
+
+        context.fillStyle = "#ff0000";
+        context.beginPath();
+        context.ellipse(
+            this.plane.position[0],
+            this.plane.position[1],
+            50,
+            50,
+            0,
+            0,
+            2 * Math.PI
+        );
+        context.fill();
+
+        if (this.safeZone) {
+            context.strokeStyle = "#ffffff";
+            context.lineWidth = 10;
+            context.beginPath();
+            context.ellipse(
+                this.safeZone[0],
+                this.safeZone[1],
+                this.safeZone[2],
+                this.safeZone[2],
+                0,
+                0,
+                2 * Math.PI
+            );
+            context.stroke();
+        }
+
+
+        if (this.blueCircle && this.blueCircle[2] > 0) {
+            context.strokeStyle = "#0000ff";
+            context.lineWidth = 10;
+            context.beginPath();
+            context.ellipse(
+                this.blueCircle[0],
+                this.blueCircle[1],
+                this.blueCircle[2],
+                this.blueCircle[2],
+                0,
+                0,
+                2 * Math.PI
+            );
+            context.stroke();
         }
     }
 }

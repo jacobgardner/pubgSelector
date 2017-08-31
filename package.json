@@ -9,9 +9,18 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@types/faker": "^4.1.1",
+    "@types/gl-matrix": "^2.2.34",
+    "browserify": "^14.4.0",
     "gulp": "^3.9.1",
     "gulp-rollup": "^2.14.0",
     "gulp-typescript": "^3.2.2",
-    "typescript": "^2.4.2"
+    "tsify": "^3.0.1",
+    "typescript": "^2.4.2",
+    "vinyl-source-stream": "^1.1.0"
+  },
+  "dependencies": {
+    "faker": "^4.1.0",
+    "gl-matrix": "^2.4.0"
   }
 }

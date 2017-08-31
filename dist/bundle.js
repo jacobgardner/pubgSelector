@@ -6939,9 +6939,9 @@ if (!context) {
     throw new Error('Was expecting a context');
 }
 const details = document.createElement('img');
-details.src = '/assets/images/details.jpg';
+details.src = 'assets/images/details.jpg';
 const topo = document.createElement('img');
-topo.src = '/assets/images/topo.jpg';
+topo.src = 'assets/images/topo.jpg';
 function resize() {
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;

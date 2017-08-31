@@ -1,24 +1,27 @@
-import Player from "./player";
-import Location from "./location";
+import Player from './player';
+import Location from './location';
 
-import { vec2, vec3 } from "gl-matrix";
+import { vec2, vec3 } from 'gl-matrix';
 import {
     INITIAL_CIRCLE,
     PLANE_ALTITUDE,
     TIME_STEP,
     VISIBLE_AOE,
     BASE_HIT_CHANCE,
-    JUMP_CHANCE
-} from "./config";
+    JUMP_CHANCE,
+    DIRECTION_ADJUST_FACTOR,
+    DIRECTION_VARIANCE
+} from './config';
 
-const CIRCLE_RADII = [10000, 4000, 3000, 1800, 250, 100, 50, 0];
+const CIRCLE_RADII = [7000, 3500, 2500, 1800, 900, 500, 10];
+const CIRCLE_DELAY = [8, 7, 6, 5, 4, 2];
 
 const SPEEDS = {
-    WALKING: 1,
-    SKYDIVING: 5,
+    WALKING: 300 / 60,
+    SKYDIVING: 400 / 60,
     FALLING: 50,
-    PLANE: 200 / 60,
-    CIRCLE: 5
+    PLANE: 500 / 60,
+    CIRCLE: 3
 };
 
 interface Item {
@@ -30,55 +33,55 @@ interface Item {
 const ITEM_LEVELS: Item[][] = [
     [
         {
-            itemName: "head",
+            itemName: 'head',
             value: 0.8
         },
         {
-            itemName: "body",
+            itemName: 'body',
             value: 0.55
         },
         {
-            itemName: "weapon",
+            itemName: 'weapon',
             value: 0 - 35
         },
         {
-            itemName: "scope",
+            itemName: 'scope',
             value: 0 - 1.2
         }
     ],
     [
         {
-            itemName: "head",
+            itemName: 'head',
             value: 0.7
         },
         {
-            itemName: "body",
+            itemName: 'body',
             value: 0.45
         },
         {
-            itemName: "weapon",
+            itemName: 'weapon',
             value: 0 - 65
         },
         {
-            itemName: "scope",
+            itemName: 'scope',
             value: 0 - 1.5
         }
     ],
     [
         {
-            itemName: "head",
+            itemName: 'head',
             value: 0.6
         },
         {
-            itemName: "body",
+            itemName: 'body',
             value: 0.45
         },
         {
-            itemName: "weapon",
+            itemName: 'weapon',
             value: 0 - 85
         },
         {
-            itemName: "scope",
+            itemName: 'scope',
             value: 0 - 1.9
         }
     ]
@@ -98,11 +101,16 @@ export default class Simulation {
     safeZone: vec3;
     time: number = 0;
     circleNumber: number = 0;
+    prevCircleTime: number = Date.now();
+    lastJump: number = Date.now();
+    maxPlayers: number;
 
     constructor(playerNames: string[], public locations: Location[]) {
         for (const name of playerNames) {
             this.players.push(new Player(name));
         }
+
+        this.maxPlayers = this.players.length;
 
         const direction = (vec2.random(
             (vec3.create() as any) as vec2
@@ -124,13 +132,33 @@ export default class Simulation {
             // In the plane
             vec3.copy(player.position, this.plane.position);
 
-            // TODO: Random chance to jump
-            if (Math.random() < JUMP_CHANCE) {
-                console.log("dumping");
+            // SPEEDS.PLANE = 500 units / 60 tick
+            // 1 sec = 60 ticks
+            // dist / 60 / 1000 = dist/ms
+
+            // travelDistance = 8000 units;
+            // plane travels = 500 units / 60 tick  =
+
+            // travelTime = 60 * 8000 / 500 (spd) = 960 ticks
+            // 960 / 60 = 16sec
+            // drop every 16 / 100
+            const travelDistance = 8000;
+
+            const travelTime = travelDistance / SPEEDS.PLANE / 60 * 1000; // ms
+
+            const dropDistance = travelTime / this.maxPlayers;
+
+            if (
+                Date.now() - this.lastJump > dropDistance &&
+                Math.random() < 0.1
+            ) {
+                this.lastJump = Date.now();
                 player.position[2] -= 5;
             }
         } else {
             // Falling
+
+            this.adjustDirection(player);
 
             vec3.scaleAndAdd(
                 player.position,
@@ -146,6 +174,52 @@ export default class Simulation {
         }
     }
 
+    adjustDirection(player: Player) {
+        const safeZone = this.safeZone;
+
+        const distFromCenter = vec2.distance(
+            (player.position as any) as vec2,
+            (safeZone as any) as vec2
+        );
+
+        let adjustFactor = 0;
+
+        if (distFromCenter < safeZone[2]) {
+            adjustFactor =
+                distFromCenter / safeZone[2] * DIRECTION_ADJUST_FACTOR * 0.01;
+        } else {
+            adjustFactor =
+                distFromCenter / safeZone[2] * DIRECTION_ADJUST_FACTOR;
+        }
+
+        const vecToCenter = vec2.subtract(
+            vec2.create(),
+            (safeZone as any) as vec2,
+            (player.position as any) as vec2
+        );
+
+        vec2.normalize(vecToCenter, vecToCenter);
+
+        const a = (player.direction as any) as vec2;
+        const b = vecToCenter;
+
+        const angle =
+            Math.atan2(a[0] * b[1] - a[1] * b[0], a[0] * b[0] + a[1] * b[1]) *
+                adjustFactor +
+            (Math.random() - 0.5) * Math.PI * DIRECTION_VARIANCE;
+
+        const s = Math.sin(angle);
+        const c = Math.cos(angle);
+
+        const newDir = vec3.fromValues(
+            player.direction[0] * c - player.direction[1] * s,
+            player.direction[0] * s + player.direction[1] * c,
+            0
+        );
+
+        player.direction = newDir;
+    }
+
     emitKillNotify(killer: Player, victim: Player, shotPosition: string) {
         console.log(
             `${killer.name} killed ${victim.name} with a ${shotPosition}shot.`
@@ -157,14 +231,14 @@ export default class Simulation {
         const chance = distance / VISIBLE_AOE * BASE_HIT_CHANCE;
 
         const hitPositionChances: [number, string][] = [
-            [0.2, "head"],
-            [0.5, "body"],
-            [1, "arm"]
+            [0.2, 'head'],
+            [0.5, 'body'],
+            [1, 'arm']
         ];
 
         if (Math.random() < chance) {
             const r = Math.random();
-            let position = "";
+            let position = '';
 
             for (const hitPosition of hitPositionChances) {
                 if (r < hitPosition[0]) {
@@ -177,7 +251,7 @@ export default class Simulation {
                 -player1.inventory.weapon *
                 -player1.inventory.scope *
                 player2.inventory[position];
-            player2.health -= damage;
+            player2.health -= damage * 0.08;
 
             if (player2.health <= 0) {
                 this.emitKillNotify(player1, player2, position);
@@ -186,33 +260,52 @@ export default class Simulation {
     }
 
     simulateInventory(player: Player) {
-        for (const location of this.locations) {
-            if (
-                vec2.distance(
-                    location.position,
-                    (player.position as any) as vec2
-                ) < location.radius
-            ) {
-                const bug = Math.random();
+        const bug = Math.random();
 
-                for (let i = 0; i < 3; i += 1) {
-                    const lootChance = location.lootChance[2 - i];
-                    const lootTable = ITEM_LEVELS[2 - i];
-                    if (bug < lootChance) {
-                        const itemNumber = Math.floor(
-                            Math.random() * lootTable.length
-                        );
+        const lootChanceTable = [0.08, 0.01, 0.004];
 
-                        const item = lootTable[itemNumber];
-                        if (player.inventory[item.itemName] < item.value) {
-                            player.inventory[item.itemName] = item.value;
-                        }
+        for (let i = 0; i < 3; i += 1) {
+            const lootChance = lootChanceTable[2 - i];
+            const lootTable = ITEM_LEVELS[2 - i];
+            if (bug < lootChance) {
+                const itemNumber = Math.floor(Math.random() * lootTable.length);
 
-                        break;
-                    }
+                const item = lootTable[itemNumber];
+                if (item.value < player.inventory[item.itemName]) {
+                    player.inventory[item.itemName] = item.value;
                 }
+
+                break;
             }
         }
+
+        // for (const location of this.locations) {
+        //     if (
+        //         vec2.distance(
+        //             location.position,
+        //             (player.position as any) as vec2
+        //         ) < location.radius
+        //     ) {
+        //         const bug = Math.random();
+
+        //         for (let i = 0; i < 3; i += 1) {
+        //             const lootChance = location.lootChance[2 - i];
+        //             const lootTable = ITEM_LEVELS[2 - i];
+        //             if (bug < lootChance) {
+        //                 const itemNumber = Math.floor(
+        //                     Math.random() * lootTable.length
+        //                 );
+
+        //                 const item = lootTable[itemNumber];
+        //                 if (player.inventory[item.itemName] < item.value) {
+        //                     player.inventory[item.itemName] = item.value;
+        //                 }
+
+        //                 break;
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     simulateOnGround(player: Player) {
@@ -258,18 +351,59 @@ export default class Simulation {
                     player.direction,
                     SPEEDS.WALKING
                 );
+                this.adjustDirection(player);
             }
         }
     }
 
     simulateCircles() {
-        // TODO: Randomize
-        if (this.time > INITIAL_CIRCLE && !this.safeZone) {
-            this.safeZone = vec3.fromValues(0, 0, CIRCLE_RADII[1]);
+        if (!this.safeZone) {
+            this.safeZone = vec3.fromValues(
+                Math.random() * 4000 - 2000,
+                Math.random() * 4000 - 2000,
+                CIRCLE_RADII[1]
+            );
             this.blueCircle = vec3.fromValues(0, 0, CIRCLE_RADII[0]);
+            this.circleNumber += 1;
         }
 
-        this.blueCircle[2] -= SPEEDS.CIRCLE;
+        if (
+            Date.now() - this.prevCircleTime >
+            CIRCLE_DELAY[this.circleNumber - 1] * 1000
+        ) {
+            this.blueCircle[2] -= SPEEDS.CIRCLE;
+
+            const ticksRemaining =
+                (this.blueCircle[2] - this.safeZone[2]) / SPEEDS.CIRCLE;
+            vec2.lerp(
+                (this.blueCircle as any) as vec2,
+                (this.blueCircle as any) as vec2,
+                (this.safeZone as any) as vec2,
+                1 / ticksRemaining
+            );
+        }
+
+        if (this.blueCircle[2] <= this.safeZone[2]) {
+            this.prevCircleTime = Date.now();
+            this.blueCircle = this.safeZone;
+            this.circleNumber += 1;
+
+            const newRadius = CIRCLE_RADII[this.circleNumber];
+
+            const newCenter = vec2.random((vec3.fromValues(
+                0,
+                0,
+                newRadius
+            ) as any) as vec2);
+
+            this.safeZone = (vec2.scaleAndAdd(
+                newCenter,
+                (this.safeZone as any) as vec2,
+                newCenter,
+                Math.random() * (this.safeZone[2] - newRadius)
+            ) as any) as vec3;
+            // update safe zone
+        }
     }
 
     center = vec2.create();
@@ -292,7 +426,6 @@ export default class Simulation {
             this.center
         );
         if (dist > 4000) {
-            console.log("dumping");
             for (const player of this.players) {
                 if (player.position[2] === PLANE_ALTITUDE) {
                     player.position[2] -= 5;
@@ -304,25 +437,27 @@ export default class Simulation {
 
         const removeDeadPlayers = [];
 
-        for (const player of this.players) {
-            if (player.health <= 0) {
-                removeDeadPlayers.push(player);
-                continue;
+        if (this.players.length > 1) {
+            for (const player of this.players) {
+                if (player.health <= 0) {
+                    removeDeadPlayers.push(player);
+                    continue;
+                }
+
+                if (player.position[2] > 0) {
+                    // In the air
+                    this.simulateInAir(player);
+                } else {
+                    // On the ground
+                    this.simulateOnGround(player);
+                }
             }
 
-            if (player.position[2] > 0) {
-                // In the air
-                this.simulateInAir(player);
-            } else {
-                // On the ground
-                this.simulateOnGround(player);
-            }
-        }
-
-        for (const player of removeDeadPlayers) {
-            const pIdx = this.players.indexOf(player);
-            if (pIdx !== -1) {
-                this.players.splice(pIdx, 1);
+            for (const player of removeDeadPlayers) {
+                const pIdx = this.players.indexOf(player);
+                if (pIdx !== -1) {
+                    this.players.splice(pIdx, 1);
+                }
             }
         }
     }
@@ -336,7 +471,7 @@ export default class Simulation {
             }
         }
 
-        context.fillStyle = "#ff0000";
+        context.fillStyle = '#ff0000';
         context.beginPath();
         context.ellipse(
             this.plane.position[0],
@@ -350,7 +485,7 @@ export default class Simulation {
         context.fill();
 
         if (this.safeZone) {
-            context.strokeStyle = "#ffffff";
+            context.strokeStyle = '#ffffff';
             context.lineWidth = 10;
             context.beginPath();
             context.ellipse(
@@ -365,9 +500,8 @@ export default class Simulation {
             context.stroke();
         }
 
-
         if (this.blueCircle && this.blueCircle[2] > 0) {
-            context.strokeStyle = "#0000ff";
+            context.strokeStyle = '#0000ff';
             context.lineWidth = 10;
             context.beginPath();
             context.ellipse(
@@ -380,6 +514,14 @@ export default class Simulation {
                 2 * Math.PI
             );
             context.stroke();
+        }
+
+        if (this.players.length === 1) {
+            context.fillStyle = '#FFFFFF';
+            context.font = '500px sans-serif';
+            context.textAlign = 'center';
+
+            context.fillText(this.players[0].name, 0, 0);
         }
     }
 }

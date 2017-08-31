@@ -14,14 +14,22 @@
         }
 
         canvas {
+            /* display: none; */
             display: inline-block;
+            opacity: 0;
             width: 100vmin;
             height: 100vmin;
+        }
+        textarea {
+            height: 100%;
+            width: 50%;
         }
     </style>
 </head>
 
 <body>
+    <textarea></textarea>
+    <button>Simulate</button>
     <canvas></canvas>
     <script src="./dist/bundle.js"></script>
 </body>

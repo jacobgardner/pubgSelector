@@ -6,6 +6,8 @@ export const TIME_STEP = 1000 / 60;
 // 1000ms / 60 = 1s / 60
 
 export const INITIAL_CIRCLE = 5;
-export const VISIBLE_AOE = 300;
+export const VISIBLE_AOE = 50;
 export const BASE_HIT_CHANCE = 0.5;
 export const JUMP_CHANCE = 0.00085;
+export const DIRECTION_ADJUST_FACTOR = 0.05;
+export const DIRECTION_VARIANCE = 0.08;

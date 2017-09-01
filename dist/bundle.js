@@ -6895,7 +6895,7 @@ exports.TIME_STEP = 1000 / 60;
 // x * 60 = 1000
 // 1000ms / 60 = 1s / 60
 exports.INITIAL_CIRCLE = 5;
-exports.VISIBLE_AOE = 50;
+exports.VISIBLE_AOE = 150;
 exports.BASE_HIT_CHANCE = 0.5;
 exports.JUMP_CHANCE = 0.00085;
 exports.DIRECTION_ADJUST_FACTOR = 0.05;
@@ -7039,8 +7039,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const player_1 = require("./player");
 const gl_matrix_1 = require("gl-matrix");
 const config_1 = require("./config");
-const CIRCLE_RADII = [7000, 3500, 2500, 1800, 900, 500, 10];
-const CIRCLE_DELAY = [8, 7, 6, 5, 4, 2];
+const CIRCLE_RADII = [7000, 3500, 2500, 1800, 900, 500, 100, 60];
+const CIRCLE_DELAY = [8, 7, 6, 5, 4, 3, 10];
 const SPEEDS = {
     WALKING: 300 / 60,
     SKYDIVING: 400 / 60,
@@ -7048,6 +7048,14 @@ const SPEEDS = {
     PLANE: 500 / 60,
     CIRCLE: 3
 };
+function shuffle(list) {
+    for (let i = 0; i < list.length; i += 1) {
+        const shufflePos = Math.floor(Math.random() * list.length);
+        const temp = list[shufflePos];
+        list[shufflePos] = list[i];
+        list[i] = temp;
+    }
+}
 // Weapon/scope are negative because it's easier to check to see which is better if lower is always better
 const ITEM_LEVELS = [
     [
@@ -7115,6 +7123,7 @@ class Simulation {
         this.prevCircleTime = Date.now();
         this.lastJump = Date.now();
         this.center = gl_matrix_1.vec2.create();
+        shuffle(playerNames);
         for (const name of playerNames) {
             this.players.push(new player_1.default(name));
         }
@@ -7166,7 +7175,7 @@ class Simulation {
         let adjustFactor = 0;
         if (distFromCenter < safeZone[2]) {
             adjustFactor =
-                distFromCenter / safeZone[2] * config_1.DIRECTION_ADJUST_FACTOR * 0.01;
+                distFromCenter / safeZone[2] * config_1.DIRECTION_ADJUST_FACTOR * 0.18;
         }
         else {
             adjustFactor =
@@ -7182,7 +7191,7 @@ class Simulation {
         const s = Math.sin(angle);
         const c = Math.cos(angle);
         const newDir = gl_matrix_1.vec3.fromValues(player.direction[0] * c - player.direction[1] * s, player.direction[0] * s + player.direction[1] * c, 0);
-        player.direction = newDir;
+        player.direction = gl_matrix_1.vec2.normalize(newDir, newDir);
     }
     emitKillNotify(killer, victim, shotPosition) {
         console.log(`${killer.name} killed ${victim.name} with a ${shotPosition}shot.`);

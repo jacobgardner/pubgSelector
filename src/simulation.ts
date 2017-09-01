@@ -13,8 +13,8 @@ import {
     DIRECTION_VARIANCE
 } from './config';
 
-const CIRCLE_RADII = [7000, 3500, 2500, 1800, 900, 500, 10];
-const CIRCLE_DELAY = [8, 7, 6, 5, 4, 2];
+const CIRCLE_RADII = [7000, 3500, 2500, 1800, 900, 500, 100, 60];
+const CIRCLE_DELAY = [8, 7, 6, 5, 4, 3, 10];
 
 const SPEEDS = {
     WALKING: 300 / 60,
@@ -27,6 +27,16 @@ const SPEEDS = {
 interface Item {
     itemName: string;
     value: number;
+}
+
+function shuffle<T>(list: T[]) {
+    for (let i = 0; i < list.length; i += 1) {
+        const shufflePos = Math.floor(Math.random() * list.length);
+
+        const temp = list[shufflePos];
+        list[shufflePos] = list[i];
+        list[i] = temp;
+    }
 }
 
 // Weapon/scope are negative because it's easier to check to see which is better if lower is always better
@@ -106,6 +116,7 @@ export default class Simulation {
     maxPlayers: number;
 
     constructor(playerNames: string[], public locations: Location[]) {
+        shuffle(playerNames);
         for (const name of playerNames) {
             this.players.push(new Player(name));
         }
@@ -186,7 +197,7 @@ export default class Simulation {
 
         if (distFromCenter < safeZone[2]) {
             adjustFactor =
-                distFromCenter / safeZone[2] * DIRECTION_ADJUST_FACTOR * 0.01;
+                distFromCenter / safeZone[2] * DIRECTION_ADJUST_FACTOR * 0.18;
         } else {
             adjustFactor =
                 distFromCenter / safeZone[2] * DIRECTION_ADJUST_FACTOR;
@@ -217,7 +228,10 @@ export default class Simulation {
             0
         );
 
-        player.direction = newDir;
+        player.direction = vec2.normalize(
+            (newDir as any) as vec2,
+            (newDir as any) as vec2
+        ) as any as vec3;
     }
 
     emitKillNotify(killer: Player, victim: Player, shotPosition: string) {
